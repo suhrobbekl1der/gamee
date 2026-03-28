@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tosh Qaychi Qog'oz</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0a0a0f;
+    color: #fff;
+    font-family: 'Rajdhani', sans-serif;
+    overflow: hidden;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  #canvas-container {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 0;
+  }
+
+  #ui {
+    position: relative;
+    z-index: 10;
+    width: 100%;
+    max-width: 420px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px 16px;
+    height: 100vh;
+  }
+
+  h1 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 18px;
+    font-weight: 900;
+    letter-spacing: 3px;
+    text-align: center;
+    background: linear-gradient(90deg, #00f5ff, #bf00ff, #00f5ff);
+    background-size: 200%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: shimmer 3s linear infinite;
+    margin-bottom: 6px;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: 0% }
+    100% { background-position: 200% }
+  }
+
+  .score-board {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 10px;
+    align-items: center;
+  }
+
+  .score-box {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 8px 20px;
+    text-align: center;
+    backdrop-filter: blur(10px);
+  }
+
+  .score-box .label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: rgba(255,255,255,0.5);
+    text-transform: uppercase;
+  }
+
+  .score-box .num {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 28px;
+    font-weight: 700;
+  }
+
+  .score-box.player .num { color: #00f5ff; }
+  .score-box.bot .num { color: #ff0066; }
+  .vs-text {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 14px;
+    color: rgba(255,255,255,0.3);
+  }
+
+  /* 3D BATTLE ARENA */
+  .battle-arena {
+    width: 100%;
+    height: 180px;
+    position: relative;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .fighter {
+    width: 120px;
+    height: 140px;
+    position: relative;
+  }
+
+  .fighter canvas {
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  .fighter-label {
+    text-align: center;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: rgba(255,255,255,0.4);
+    margin-top: 4px;
+    text-transform: uppercase;
+  }
+
+  .vs-badge {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 22px;
+    font-weight: 900;
+    color: rgba(255,255,255,0.15);
+    margin: 0 10px;
+  }
+
+  /* RESULT DISPLAY */
+  .result-display {
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 10px;
+  }
+
+  .result-text {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 22px;
+    font-weight: 900;
+    text-align: center;
+    opacity: 0;
+    transform: scale(0.5);
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+
+  .result-text.show {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  .result-text.win { color: #00f5ff; text-shadow: 0 0 30px #00f5ff; }
+  .result-text.lose { color: #ff0066; text-shadow: 0 0 30px #ff0066; }
+  .result-text.draw { color: #ffaa00; text-shadow: 0 0 30px #ffaa00; }
+
+  /* CHOICE DISPLAY */
+  .choices-row {
+    display: flex;
+    justify-content: space-around;
+    width: 100%;
+    margin-bottom: 12px;
+    min-height: 40px;
+    align-items: center;
+  }
+
+  .choice-badge {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    padding: 6px 14px;
+    font-size: 13px;
+    letter-spacing: 1px;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .choice-badge.player-choice {
+    border-color: rgba(0,245,255,0.4);
+    color: #00f5ff;
+  }
+
+  .choice-badge.bot-choice {
+    border-color: rgba(255,0,102,0.4);
+    color: #ff0066;
+  }
+
+  /* BUTTONS */
+  .buttons-label {
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: rgba(255,255,255,0.3);
+    margin-bottom: 12px;
+    text-transform: uppercase;
+  }
+
+  .choices {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+    margin-bottom: 16px;
+  }
+
+  .choice-btn {
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.04);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    position: relative;
+    overflow: hidden;
+    backdrop-filter: blur(10px);
+  }
+
+  .choice-btn::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: 50%;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .choice-btn.tosh::before { background: conic-gradient(#00f5ff, #0088ff, #00f5ff); }
+  .choice-btn.qaychi::before { background: conic-gradient(#bf00ff, #ff0066, #bf00ff); }
+  .choice-btn.qogoz::before { background: conic-gradient(#ffaa00, #ff6600, #ffaa00); }
+
+  .choice-btn:hover {
+    transform: scale(1.12) translateY(-4px);
+    border-color: transparent;
+    box-shadow: 0 10px 40px rgba(0,245,255,0.3);
+  }
+
+  .choice-btn:hover::before { opacity: 1; }
+
+  .choice-btn:active { transform: scale(0.95); }
+
+  .choice-btn .inner {
+    position: relative;
+    z-index: 1;
+    background: #0a0a0f;
+    width: calc(100% - 4px);
+    height: calc(100% - 4px);
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+  }
+
+  .choice-btn .emoji { font-size: 32px; }
+  .choice-btn .btn-label {
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    color: rgba(255,255,255,0.5);
+    text-transform: uppercase;
+  }
+
+  .choice-btn.selected {
+    border-color: transparent;
+    transform: scale(1.08);
+  }
+
+  .choice-btn.selected::before { opacity: 1; }
+
+  /* COUNTDOWN */
+  .countdown {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 48px;
+    font-weight: 900;
+    color: #fff;
+    text-shadow: 0 0 40px rgba(255,255,255,0.5);
+    position: absolute;
+    opacity: 0;
+    transition: all 0.2s;
+    z-index: 5;
+  }
+
+  .countdown.show {
+    opacity: 1;
+    animation: countPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+
+  @keyframes countPop {
+    0% { transform: scale(2); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  /* RESET BTN */
+  .reset-btn {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.4);
+    padding: 8px 24px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 12px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    transition: all 0.3s;
+  }
+
+  .reset-btn:hover {
+    border-color: rgba(255,255,255,0.3);
+    color: #fff;
+  }
+
+  /* PARTICLE EFFECTS */
+  .particles {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .particle {
+    position: absolute;
+    border-radius: 50%;
+    animation: float linear infinite;
+    opacity: 0.3;
+  }
+
+  @keyframes float {
+    0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+    10% { opacity: 0.3; }
+    90% { opacity: 0.3; }
+    100% { transform: translateY(-100px) rotate(720deg); opacity: 0; }
+  }
+
+  /* SHAKE ANIMATION */
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-8px) rotate(-5deg); }
+    75% { transform: translateX(8px) rotate(5deg); }
+  }
+
+  .shaking { animation: shake 0.3s ease-in-out infinite; }
+
+  /* HISTORY */
+  .history {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: center;
+    min-height: 24px;
+    margin-top: 8px;
+  }
+
+  .history-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+
+  @keyframes popIn {
+    0% { transform: scale(0); }
+    100% { transform: scale(1); }
+  }
+
+  .history-dot.win { background: #00f5ff; box-shadow: 0 0 8px #00f5ff; }
+  .history-dot.lose { background: #ff0066; box-shadow: 0 0 8px #ff0066; }
+  .history-dot.draw { background: #ffaa00; box-shadow: 0 0 8px #ffaa00; }
+</style>
+</head>
+<body>
+
+<div id="canvas-container"></div>
+
+<div class="particles" id="particles"></div>
+
+<div id="ui">
+  <h1>TOSh · QAYChI · QOG'OZ</h1>
+
+  <div class="score-board">
+    <div class="score-box player">
+      <div class="label">Sen</div>
+      <div class="num" id="player-score">0</div>
+    </div>
+    <div class="vs-text">VS</div>
+    <div class="score-box bot">
+      <div class="label">Bot</div>
+      <div class="num" id="bot-score">0</div>
+    </div>
+  </div>
+
+  <div class="battle-arena">
+    <div>
+      <canvas id="player-canvas" width="120" height="120"></canvas>
+      <div class="fighter-label">Sen</div>
+    </div>
+    <div class="vs-badge">⚡</div>
+    <div>
+      <canvas id="bot-canvas" width="120" height="120"></canvas>
+      <div class="fighter-label">Bot</div>
+    </div>
+    <div class="countdown" id="countdown"></div>
+  </div>
+
+  <div class="result-display">
+    <div class="result-text" id="result-text"></div>
+  </div>
+
+  <div class="choices-row">
+    <div class="choice-badge player-choice" id="player-badge" style="opacity:0">— Sen</div>
+    <div class="choice-badge bot-choice" id="bot-badge" style="opacity:0">Bot —</div>
+  </div>
+
+  <div class="buttons-label">Tanlang</div>
+
+  <div class="choices">
+    <button class="choice-btn tosh" onclick="play('tosh')">
+      <div class="inner">
+        <span class="emoji">🪨</span>
+        <span class="btn-label">Tosh</span>
+      </div>
+    </button>
+    <button class="choice-btn qaychi" onclick="play('qaychi')">
+      <div class="inner">
+        <span class="emoji">✂️</span>
+        <span class="btn-label">Qaychi</span>
+      </div>
+    </button>
+    <button class="choice-btn qogoz" onclick="play('qogoz')">
+      <div class="inner">
+        <span class="emoji">📄</span>
+        <span class="btn-label">Qog'oz</span>
+      </div>
+    </button>
+  </div>
+
+  <div class="history" id="history"></div>
+
+  <button class="reset-btn" onclick="resetGame()">◎ Qayta boshlash</button>
+</div>
+
+<script>
+// ============ PARTICLES ============
+const particlesEl = document.getElementById('particles');
+const colors = ['#00f5ff','#bf00ff','#ff0066','#ffaa00'];
+for (let i = 0; i < 25; i++) {
+  const p = document.createElement('div');
+  p.className = 'particle';
+  const size = Math.random() * 4 + 1;
+  p.style.cssText = `
+    width:${size}px; height:${size}px;
+    left:${Math.random()*100}%;
+    background:${colors[Math.floor(Math.random()*colors.length)]};
+    animation-duration:${Math.random()*15+8}s;
+    animation-delay:${Math.random()*10}s;
+  `;
+  particlesEl.appendChild(p);
+}
+
+// ============ THREE.JS 3D HANDS ============
+function createScene(canvasId, isPlayer) {
+  const canvas = document.getElementById(canvasId);
+  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+  renderer.setSize(120, 120);
+  renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.shadowMap.enabled = true;
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
+  camera.position.set(0, 0, 4);
+
+  // Lights
+  const ambient = new THREE.AmbientLight(0xffffff, 0.3);
+  scene.add(ambient);
+
+  const dirLight = new THREE.DirectionalLight(isPlayer ? 0x00f5ff : 0xff0066, 1.5);
+  dirLight.position.set(2, 3, 3);
+  scene.add(dirLight);
+
+  const rimLight = new THREE.DirectionalLight(isPlayer ? 0x0044ff : 0xff4400, 0.8);
+  rimLight.position.set(-2, -1, -2);
+  scene.add(rimLight);
+
+  // Point glow
+  const pointLight = new THREE.PointLight(isPlayer ? 0x00f5ff : 0xff0066, 2, 10);
+  pointLight.position.set(0, 0, 2);
+  scene.add(pointLight);
+
+  // Main group
+  const group = new THREE.Group();
+  scene.add(group);
+
+  // Material
+  const mat = new THREE.MeshPhongMaterial({
+    color: isPlayer ? 0x112244 : 0x441122,
+    emissive: isPlayer ? 0x001133 : 0x330011,
+    specular: isPlayer ? 0x00f5ff : 0xff0066,
+    shininess: 80,
+  });
+
+  const wireMat = new THREE.MeshBasicMaterial({
+    color: isPlayer ? 0x00f5ff : 0xff0066,
+    wireframe: true,
+    opacity: 0.15,
+    transparent: true,
+  });
+
+  // Current shape meshes
+  let meshes = [];
+
+  function buildFist() {
+    clearMeshes();
+    // Palm
+    const palm = new THREE.Mesh(new THREE.BoxGeometry(1, 0.9, 0.5), mat);
+    palm.castShadow = true;
+    // Fingers folded (small bumps on top)
+    for (let i = 0; i < 4; i++) {
+      const f = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 8), mat);
+      f.position.set(-0.45 + i * 0.3, 0.5, 0);
+      group.add(f);
+      meshes.push(f);
+      const fw = new THREE.Mesh(new THREE.SphereGeometry(0.16, 6, 6), wireMat);
+      fw.position.copy(f.position);
+      group.add(fw);
+      meshes.push(fw);
+    }
+    // Thumb
+    const thumb = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.1, 0.4, 8), mat);
+    thumb.rotation.z = -Math.PI / 3;
+    thumb.position.set(-0.65, 0.1, 0.15);
+    group.add(thumb); meshes.push(thumb);
+
+    const palmW = new THREE.Mesh(new THREE.BoxGeometry(1.01, 0.91, 0.51), wireMat);
+    group.add(palm); group.add(palmW); meshes.push(palm); meshes.push(palmW);
+  }
+
+  function buildScissors() {
+    clearMeshes();
+    // Palm
+    const palm = new THREE.Mesh(new THREE.BoxGeometry(1, 0.7, 0.4), mat);
+    palm.position.y = -0.3;
+    group.add(palm); meshes.push(palm);
+    const palmW = new THREE.Mesh(new THREE.BoxGeometry(1.01, 0.71, 0.41), wireMat);
+    palmW.position.copy(palm.position);
+    group.add(palmW); meshes.push(palmW);
+
+    // Two extended fingers
+    [-0.18, 0.18].forEach((x, i) => {
+      const f = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.1, 0.8, 8), mat);
+      f.position.set(x, 0.45, 0);
+      f.rotation.z = i === 0 ? 0.15 : -0.15;
+      group.add(f); meshes.push(f);
+      const fw = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.11, 0.81, 6), wireMat);
+      fw.position.copy(f.position);
+      fw.rotation.copy(f.rotation);
+      group.add(fw); meshes.push(fw);
+    });
+
+    // Folded fingers
+    [-0.42, 0.42].forEach(x => {
+      const f = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), mat);
+      f.position.set(x, 0.15, 0);
+      group.add(f); meshes.push(f);
+    });
+
+    // Thumb
+    const thumb = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.09, 0.35, 8), mat);
+    thumb.rotation.z = -Math.PI / 3;
+    thumb.position.set(-0.6, 0.0, 0.1);
+    group.add(thumb); meshes.push(thumb);
+  }
+
+  function buildPaper() {
+    clearMeshes();
+    // Flat hand - palm
+    const palm = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.8, 0.15), mat);
+    group.add(palm); meshes.push(palm);
+    const palmW = new THREE.Mesh(new THREE.BoxGeometry(1.11, 0.81, 0.16), wireMat);
+    group.add(palmW); meshes.push(palmW);
+
+    // 4 fingers extended flat
+    for (let i = 0; i < 4; i++) {
+      const f = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.65, 0.12), mat);
+      f.position.set(-0.42 + i * 0.28, 0.72, 0);
+      group.add(f); meshes.push(f);
+      const fw = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.66, 0.13), wireMat);
+      fw.position.copy(f.position);
+      group.add(fw); meshes.push(fw);
+    }
+
+    // Thumb
+    const thumb = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.15, 0.12), mat);
+    thumb.position.set(-0.72, 0.2, 0);
+    group.add(thumb); meshes.push(thumb);
+    const thumbW = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.16, 0.13), wireMat);
+    thumbW.position.copy(thumb.position);
+    group.add(thumbW); meshes.push(thumbW);
+  }
+
+  function clearMeshes() {
+    meshes.forEach(m => group.remove(m));
+    meshes = [];
+  }
+
+  // Build default
+  buildFist();
+
+  // Idle float animation
+  let time = isPlayer ? 0 : Math.PI;
+  let shaking = false;
+  let shakeTime = 0;
+  let targetShape = 'tosh';
+  let currentShape = 'tosh';
+
+  function setShape(shape) {
+    targetShape = shape;
+    if (shape === 'tosh') buildFist();
+    else if (shape === 'qaychi') buildScissors();
+    else buildPaper();
+    currentShape = shape;
+  }
+
+  function startShake() {
+    shaking = true;
+    shakeTime = 0;
+    setShape('tosh');
+  }
+
+  function stopShake(shape) {
+    shaking = false;
+    setShape(shape);
+  }
+
+  function animate() {
+    requestAnimationFrame(animate);
+    time += 0.02;
+
+    if (shaking) {
+      shakeTime += 0.15;
+      group.position.y = Math.sin(shakeTime * 8) * 0.25;
+      group.rotation.z = Math.sin(shakeTime * 6) * 0.15;
+    } else {
+      group.position.y = Math.sin(time) * 0.08;
+      group.rotation.y = Math.sin(time * 0.5) * 0.2;
+      group.rotation.z = Math.sin(time * 0.3) * 0.05;
+    }
+
+    renderer.render(scene, camera);
+  }
+
+  animate();
+
+  return { setShape, startShake, stopShake };
+}
+
+const playerScene = createScene('player-canvas', true);
+const botScene = createScene('bot-canvas', false);
+
+// ============ GAME LOGIC ============
+const choices = ['tosh', 'qaychi', 'qogoz'];
+const emojis = { tosh: '🪨', qaychi: '✂️', qogoz: '📄' };
+const names = { tosh: 'Tosh', qaychi: 'Qaychi', qogoz: "Qog'oz" };
+
+let playerScore = 0, botScore = 0;
+let playing = false;
+
+function play(playerChoice) {
+  if (playing) return;
+  playing = true;
+
+  document.querySelectorAll('.choice-btn').forEach(b => b.style.opacity = '0.4');
+  document.getElementById('result-text').classList.remove('show');
+  document.getElementById('player-badge').style.opacity = '0';
+  document.getElementById('bot-badge').style.opacity = '0';
+
+  playerScene.startShake();
+  botScene.startShake();
+
+  let count = 3;
+  const countEl = document.getElementById('countdown');
+
+  function showCount() {
+    countEl.textContent = count;
+    countEl.classList.add('show');
+    setTimeout(() => {
+      countEl.classList.remove('show');
+      count--;
+      if (count > 0) {
+        setTimeout(showCount, 300);
+      } else {
+        setTimeout(() => {
+          countEl.textContent = '✊';
+          countEl.classList.add('show');
+          setTimeout(() => {
+            countEl.classList.remove('show');
+            reveal(playerChoice);
+          }, 400);
+        }, 300);
+      }
+    }, 400);
+  }
+  showCount();
+}
+
+function reveal(playerChoice) {
+  const botChoice = choices[Math.floor(Math.random() * 3)];
+
+  playerScene.stopShake(playerChoice);
+  botScene.stopShake(botChoice);
+
+  // Show badges
+  setTimeout(() => {
+    const pb = document.getElementById('player-badge');
+    const bb = document.getElementById('bot-badge');
+    pb.textContent = `${emojis[playerChoice]} ${names[playerChoice]}`;
+    bb.textContent = `${names[botChoice]} ${emojis[botChoice]}`;
+    pb.style.opacity = '1';
+    bb.style.opacity = '1';
+
+    // Determine winner
+    let result, cls;
+    if (playerChoice === botChoice) {
+      result = '🤝 DRAW!'; cls = 'draw';
+    } else if (
+      (playerChoice === 'tosh' && botChoice === 'qaychi') ||
+      (playerChoice === 'qaychi' && botChoice === 'qogoz') ||
+      (playerChoice === 'qogoz' && botChoice === 'tosh')
+    ) {
+      result = '🎉 G\'ALABA!'; cls = 'win';
+      playerScore++;
+      document.getElementById('player-score').textContent = playerScore;
+    } else {
+      result = '💀 YUTQAZDING!'; cls = 'lose';
+      botScore++;
+      document.getElementById('bot-score').textContent = botScore;
+    }
+
+    const resultEl = document.getElementById('result-text');
+    resultEl.textContent = result;
+    resultEl.className = 'result-text ' + cls;
+    setTimeout(() => resultEl.classList.add('show'), 50);
+
+    addHistory(cls);
+
+    document.querySelectorAll('.choice-btn').forEach(b => b.style.opacity = '1');
+    playing = false;
+  }, 300);
+}
+
+function addHistory(type) {
+  const history = document.getElementById('history');
+  const dot = document.createElement('div');
+  dot.className = `history-dot ${type}`;
+  history.appendChild(dot);
+  if (history.children.length > 20) history.removeChild(history.firstChild);
+}
+
+function resetGame() {
+  playerScore = 0; botScore = 0;
+  document.getElementById('player-score').textContent = '0';
+  document.getElementById('bot-score').textContent = '0';
+  document.getElementById('result-text').classList.remove('show');
+  document.getElementById('player-badge').style.opacity = '0';
+  document.getElementById('bot-badge').style.opacity = '0';
+  document.getElementById('history').innerHTML = '';
+  document.getElementById('countdown').classList.remove('show');
+  playerScene.setShape('tosh');
+  botScene.setShape('tosh');
+  playing = false;
+  document.querySelectorAll('.choice-btn').forEach(b => b.style.opacity = '1');
+}
+
+// Telegram Web App init
+if (window.Telegram && window.Telegram.WebApp) {
+  window.Telegram.WebApp.ready();
+  window.Telegram.WebApp.expand();
+}
+</script>
+</body>
+</html>
